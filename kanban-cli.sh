@@ -2,7 +2,7 @@
 # Kanban board CLI — used by Relay (netops bot) to manage tasks via Telegram
 set -euo pipefail
 
-API="${KANBAN_API_URL:-http://localhost:3001}"
+API="${KANBAN_API_URL:-http://localhost:3002}"
 CMD="${1:-help}"
 shift || true
 

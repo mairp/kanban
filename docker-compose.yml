@@ -2,7 +2,7 @@ services:
   api:
     build: ./api
     ports:
-      - "3001:3001"
+      - "3002:3001"
     volumes:
       - kanban-data:/data
     environment:
