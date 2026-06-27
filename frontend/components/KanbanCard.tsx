@@ -24,14 +24,14 @@ export default function KanbanCard({ card, onDelete, isOverlay }: Props) {
     <div
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
-      className={`bg-white rounded-lg p-3 shadow-sm border border-gray-100 group relative
+      className={`glass rounded-xl p-3 group relative
         cursor-grab active:cursor-grabbing select-none
-        ${isOverlay ? 'shadow-xl rotate-2 scale-105' : 'hover:shadow-md'}
-        transition-shadow`}
+        ${isOverlay ? 'rotate-2 scale-105 shadow-[0_16px_40px_rgba(0,0,0,0.45)]' : 'hover:bg-white/[0.14] hover:-translate-y-0.5'}
+        transition-all duration-150`}
       {...(isOverlay ? {} : { ...attributes, ...listeners })}
     >
       <button
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-500 transition-opacity text-xs rounded-full hover:bg-red-50"
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-white/40 hover:text-rose-300 transition-all text-xs rounded-full hover:bg-rose-400/20"
         onClick={(e) => {
           e.stopPropagation();
           onDelete(card.id);
@@ -41,9 +41,9 @@ export default function KanbanCard({ card, onDelete, isOverlay }: Props) {
       >
         ✕
       </button>
-      <p className="font-medium text-sm text-[#032147] pr-5 leading-snug">{card.title}</p>
+      <p className="font-medium text-sm text-[var(--text-primary)] pr-5 leading-snug">{card.title}</p>
       {card.details && (
-        <p className="text-xs text-[#888888] mt-1.5 leading-relaxed">{card.details}</p>
+        <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">{card.details}</p>
       )}
     </div>
   );

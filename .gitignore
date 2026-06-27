@@ -1,5 +1,7 @@
 .env
 *.db
+*.db-shm
+*.db-wal
 node_modules/
 frontend/node_modules/
 api/node_modules/

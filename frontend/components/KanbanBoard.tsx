@@ -17,7 +17,8 @@ import { Column, Card } from '@/lib/types';
 import KanbanColumn from './KanbanColumn';
 import KanbanCard from './KanbanCard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Empty default = same-origin; /api/* is proxied by Next.js rewrites (next.config.ts).
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export default function KanbanBoard() {
   const [columns, setColumns] = useState<Column[]>([]);
