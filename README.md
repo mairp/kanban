@@ -1,25 +1,64 @@
-# Kanban Project Manager
+# Kanban Board
 
-## Instructions
+A persistent kanban board with a TypeScript microservices backend, Telegram bot integration, and an AI assistant powered by Claude.
 
-This is a skeleton project to be the basis for your Kanban project for Week 1 of the Complete AI Coder Course. See the course resources for more.
+## Stack
 
-You should clone this repo within your projects directory with:
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, TypeScript, Tailwind CSS 4, @dnd-kit |
+| Backend API | Hono (TypeScript), Node.js 22 |
+| Database | SQLite via `better-sqlite3` (Docker volume) |
+| AI | Anthropic Claude (claude-sonnet-4-6) |
+| Infrastructure | Docker Compose |
 
-`git clone https://github.com/ed-donner/kanban.git`
+## Features
 
-And then refine the AGENTS.md before using in your Coding Agent of choice.
+- Drag-and-drop cards across columns with persistence
+- Real-time sync via Server-Sent Events (SSE) — changes from any source appear instantly
+- AI assistant panel to help plan tasks
+- Bot-friendly REST API with a shell CLI for automation
 
-If you don't have git installed, you can [install it here](https://git-scm.com/install/) and you might need to reboot afterwards.
+## Quick Start
 
-## Contributing your AGENTS.md
+```bash
+cp .env.example .env
+# Edit .env — add your ANTHROPIC_API_KEY
 
-If you have suggested AGENTS.md changes that have worked well for you, please contribute them to benefit other students! Follow the instructions linked [here](https://edwarddonner.com/pr) to raise a PR to put it in community_contributions. Name your file something like ED_DONNER_AGENTS.md but with your name..
+docker compose up --build
+```
 
-I can't wait to see your changes.
+- Board: http://localhost:3000
+- API: http://localhost:3001
 
-## Posting your app
+## API
 
-When you've successfully built a Kanban app, if you'd like to post about it on LinkedIn and tag me, then I'll weigh in to amplify your success and draw more attention to your achievements.
+```
+GET  /api/board                              Full board state
+GET  /api/board/events                       SSE stream (board-changed)
+PUT  /api/board/columns/:id                  Rename column
+POST /api/board/columns/:id/cards            Add card
+DELETE /api/board/columns/:id/cards/:cardId  Delete card
+POST /api/board/move                         Move/reorder card
+GET  /api/board/search?q=...                 Search cards
+POST /api/ai/suggest                         AI suggestions (streaming)
+```
 
-If you see other students doing this, please weigh in yourself to add your support and encouragement. It's so helpful for the community if we support each other.
+## CLI
+
+```bash
+./kanban-cli.sh list
+./kanban-cli.sh add backlog "Review configs" "Check BGP sessions"
+./kanban-cli.sh move <card-id> done
+./kanban-cli.sh find "BGP"
+./kanban-cli.sh delete <card-id>
+```
+
+Set `KANBAN_API_URL` to override the default `http://localhost:3001`.
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Required for the AI assistant |
+| `KANBAN_API_URL` | CLI API target (default: `http://localhost:3001`) |

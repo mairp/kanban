@@ -1,0 +1,25 @@
+services:
+  api:
+    build: ./api
+    ports:
+      - "3001:3001"
+    volumes:
+      - kanban-data:/data
+    environment:
+      - DB_PATH=/data/kanban.db
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  kanban-data:
