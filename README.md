@@ -127,6 +127,10 @@ Invoked by a `kanban-worker.timer` systemd unit every 5 minutes:
 3. Invokes `claude --print` headlessly to work on it
 4. Claude phases the card: `in-progress` → work → `review`
 
+**Observability.** Each task runs in its own fresh, *persisted* Claude session (a unique `--session-id` per run): context is clean per task, but the session is saved to disk so you can inspect exactly what it did with `claude --resume <id>`. The worker also announces over Telegram when it **starts** a task and when it **finishes** (with the model's one-paragraph summary and the resume id). Full output is appended to `/var/log/kanban-worker.log`, and OTEL telemetry flows to the Grafana `claude-code` dashboard.
+
+> Note: a headless `--print` run does **not** attach to an interactive Remote Control session — observe it via the Telegram notices, `claude --resume <id>`, the log, or Grafana.
+
 ### Telegram screenshot (kanban-screenshot.sh)
 
 Runs `chromium --headless --no-sandbox` (as root) to capture the board UI at `:3001`, then delivers the PNG to the user via `openclaw message send --media`. Triggered by the bot agent on "send me the board".
