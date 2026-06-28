@@ -11,7 +11,7 @@ A persistent kanban board with a TypeScript microservices backend, Telegram bot 
 | Database | SQLite via `better-sqlite3` (WAL mode) |
 | AI assistant | LiteLLM proxy (gpt-5 / claude-sonnet) |
 | Automation | Claude Code CLI + systemd timer |
-| Telegram | OpenClaw gateway (netops agent) |
+| Telegram | OpenClaw gateway + Telegram bot |
 
 ## Architecture
 
@@ -19,10 +19,10 @@ A persistent kanban board with a TypeScript microservices backend, Telegram bot 
 ┌─────────────────────────────────────────────────────────────┐
 │                        Task sources                         │
 │                                                             │
-│  Telegram (@mairp_netops_bot)    Claude Code (this chat)   │
+│  Telegram bot                     Claude Code (this chat)   │
 │          │                               │                  │
 │          │  kanban-cli.sh add            │ expedited path   │
-│          │  (Relay / netops agent)       │ (immediate)      │
+│          │  (Telegram bot agent)       │ (immediate)      │
 │          └───────────────┬───────────────┘                  │
 └──────────────────────────│──────────────────────────────────┘
                            ▼
@@ -41,7 +41,7 @@ A persistent kanban board with a TypeScript microservices backend, Telegram bot 
                       │ SSE broadcast
           ┌───────────┼────────────────────┐
           ▼           ▼                    ▼
-   Next.js UI    kanban-worker.sh    Relay (netops)
+   Next.js UI    kanban-worker.sh    Telegram bot
    :3001         (every 5 min)       kanban-screenshot.sh
    browser       │                   → Telegram image
                  │ claude --print
@@ -60,7 +60,7 @@ Deleted cards → card_archive (history preserved)
 - Real-time sync via Server-Sent Events (SSE) — changes from any source appear instantly
 - AI assistant panel to help plan tasks
 - Bot-friendly REST API with a shell CLI for automation
-- Telegram integration: add tasks, move cards, get board screenshot via `@mairp_netops_bot`
+- Telegram integration: add tasks, move cards, get board screenshot via your Telegram bot
 - Autonomous worker: Claude Code picks up backlog tasks every 5 min (systemd timer)
 - Card history: completed and deleted cards are archived in SQLite, never lost
 
@@ -125,7 +125,7 @@ Invoked by a `kanban-worker.timer` systemd unit every 5 minutes:
 
 ### Telegram screenshot (kanban-screenshot.sh)
 
-Uses chromium headless to screenshot the board UI and sends it via `openclaw message send --media`. Triggered by the netops Relay agent ("send me the board").
+Uses chromium headless to screenshot the board UI and delivers it to the user via Telegram. Triggered by the bot agent on "send me the board".
 
 ## Environment Variables
 
