@@ -16,42 +16,46 @@ A persistent kanban board with a TypeScript microservices backend, Telegram bot 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Task sources                         │
-│                                                             │
-│  Telegram bot                     Claude Code (this chat)   │
-│          │                               │                  │
-│          │  kanban-cli.sh add            │ expedited path   │
-│          │  (Telegram bot agent)       │ (immediate)      │
-│          └───────────────┬───────────────┘                  │
-└──────────────────────────│──────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                         Task sources                         │
+│                                                              │
+│   Telegram bot                      Claude Code (this chat)  │
+│        │                                   │                 │
+│        │ kanban-cli.sh add                 │ expedited path  │
+│        │ (bot agent, exec-approved)        │ (immediate)     │
+│        └─────────────────┬─────────────────┘                 │
+└────────────────────────── │ ─────────────────────────────────┘
+                            ▼
+              ┌──────────────────────────┐
+              │     Kanban API :3002     │
+              │     Hono + SQLite        │
+              │                          │
+              │   ┌──────────────────┐   │
+              │   │ cards (active)   │   │
+              │   └──────────────────┘   │
+              │   ┌──────────────────┐   │
+              │   │ card_archive     │   │──► GET /api/board/archive
+              │   │ (history log)    │   │    kanban-cli.sh history
+              │   └──────────────────┘   │
+              └───────────┬──────────────┘
+                          │ SSE broadcast (board-changed)
+        ┌─────────────────┼──────────────────────┐
+        ▼                 ▼                       ▼
+  ┌───────────┐   ┌─────────────────┐    ┌──────────────────┐
+  │ Next.js UI│   │ kanban-worker   │    │ Telegram bot     │
+  │   :3001   │   │ .sh (every 5min)│    │ kanban-screenshot│
+  │  browser  │   │  systemd timer  │    │ .sh → TG image   │
+  └───────────┘   └────────┬────────┘    └──────────────────┘
+                           │ claude --print --no-session-persistence
                            ▼
-              ┌────────────────────────┐
-              │   Kanban API :3002     │
-              │   Hono + SQLite        │
-              │                        │
-              │  ┌──────────────────┐  │
-              │  │ cards (active)   │  │
-              │  └──────────────────┘  │
-              │  ┌──────────────────┐  │
-              │  │ card_archive     │  │──► GET /api/board/archive
-              │  │ (history log)    │  │    kanban-cli.sh history
-              │  └──────────────────┘  │
-              └───────┬────────────────┘
-                      │ SSE broadcast
-          ┌───────────┼────────────────────┐
-          ▼           ▼                    ▼
-   Next.js UI    kanban-worker.sh    Telegram bot
-   :3001         (every 5 min)       kanban-screenshot.sh
-   browser       │                   → Telegram image
-                 │ claude --print
-                 ▼
-          Claude Code (headless)
-          works on task autonomously
-          backlog → in-progress → review
+                  ┌──────────────────────┐
+                  │ Claude Code(headless)│
+                  │ works autonomously,  │
+                  │ phases the card      │
+                  └──────────────────────┘
 
 Column flow: backlog → in-progress → review → done (or → blocked)
-Deleted cards → card_archive (history preserved)
+Deleted cards → card_archive (history preserved, never lost)
 ```
 
 ## Features
@@ -125,7 +129,29 @@ Invoked by a `kanban-worker.timer` systemd unit every 5 minutes:
 
 ### Telegram screenshot (kanban-screenshot.sh)
 
-Uses chromium headless to screenshot the board UI and delivers it to the user via Telegram. Triggered by the bot agent on "send me the board".
+Runs `chromium --headless --no-sandbox` (as root) to capture the board UI at `:3001`, then delivers the PNG to the user via `openclaw message send --media`. Triggered by the bot agent on "send me the board".
+
+> **Important — call with no arguments.** The script auto-captions. The bot agent must invoke `kanban-screenshot.sh` with **no argument** (or a plain literal string). Any `$(...)` command substitution, backtick, or shell variable in the argument forces an exec-approval prompt even though the script path is allowlisted — the approval layer cannot statically verify a command containing shell expansion. See Troubleshooting.
+
+## Persistence
+
+All components survive a host reboot:
+
+| Component | Mechanism |
+|---|---|
+| Kanban API / Frontend | systemd user units (`kanban-api`, `kanban-frontend`), `enabled` |
+| Autonomous worker | `kanban-worker.timer` systemd user unit, `enabled` |
+| Telegram bot + exec approvals | OpenClaw gateway systemd user unit, `enabled`; approvals in `exec-approvals.json` |
+| User lingering | `loginctl enable-linger` — user services run without an active login |
+
+Verify: `systemctl --user is-enabled kanban-api kanban-frontend kanban-worker.timer openclaw-gateway`
+
+## Troubleshooting
+
+**Bot keeps asking for approval on screenshots.** Two causes:
+
+1. **Command substitution in the argument.** If the agent runs `kanban-screenshot.sh "Board as of $(date ...)"`, the `$(...)` trips the approval gate regardless of the allowlist. Fix: the skill instructs the agent to call the script bare. Keep it that way.
+2. **Polluted session history.** Once an agent has run the `$(date)` form, it copies its own prior tool calls from session history. Clearing the agent's session (remove its entry from `agents/<id>/sessions/sessions.json` and archive the `.jsonl`, then restart the gateway) gives it a clean slate that reads the corrected skill.
 
 ## Environment Variables
 
