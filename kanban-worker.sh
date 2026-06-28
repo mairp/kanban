@@ -14,35 +14,35 @@ flock -n 9 || { echo "$(date -Is) already running, skipping" >> "$LOG"; exit 0; 
 BOARD=$(curl -sf --max-time 5 "$API/api/board" 2>/dev/null) || exit 0
 [ -z "$BOARD" ] && exit 0
 
-# Skip if anything is already in-progress (another session is working)
-IN_PROGRESS=$(python3 - <<'PY' <<< "$BOARD"
-import json, sys
-data = json.load(sys.stdin)
-for col in data['columns']:
-    if col['id'] == 'in-progress' and col['cards']:
-        print(col['cards'][0]['title'])
-        sys.exit(0)
-PY
-)
+# Skip if anything is already in-progress (another session is working).
+# Board JSON is passed via env var, NOT stdin: `python3 -c` reads its program
+# from the -c arg, leaving stdin free — feeding the board on stdin would be
+# read as the program and crash.
+IN_PROGRESS=$(BOARD="$BOARD" python3 -c '
+import json, os
+data = json.loads(os.environ["BOARD"])
+for col in data["columns"]:
+    if col["id"] == "in-progress" and col["cards"]:
+        print(col["cards"][0]["title"])
+        break
+')
 if [ -n "$IN_PROGRESS" ]; then
   echo "$(date -Is) in-progress: [$IN_PROGRESS] — skipping" >> "$LOG"
   exit 0
 fi
 
-# Get first backlog card
-TASK=$(python3 - <<'PY' <<< "$BOARD"
-import json, sys
-data = json.load(sys.stdin)
-for col in data['columns']:
-    if col['id'] == 'backlog' and col['cards']:
-        c = col['cards'][0]
-        print(f"{c['id']}\t{c['title']}\t{c.get('details','')}")
-        sys.exit(0)
-sys.exit(1)
-PY
-) || exit 0   # empty backlog — nothing to do
+# Get first backlog card (tab-separated id/title/details)
+TASK=$(BOARD="$BOARD" python3 -c '
+import json, os
+data = json.loads(os.environ["BOARD"])
+for col in data["columns"]:
+    if col["id"] == "backlog" and col["cards"]:
+        c = col["cards"][0]
+        print("\t".join([c["id"], c["title"], c.get("details", "")]))
+        break
+')
 
-[ -z "$TASK" ] && exit 0
+[ -z "$TASK" ] && exit 0   # empty backlog — nothing to do
 
 CARD_ID=$(echo "$TASK" | cut -f1)
 TITLE=$(echo "$TASK"   | cut -f2)
