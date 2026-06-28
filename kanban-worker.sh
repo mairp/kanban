@@ -50,7 +50,7 @@ DETAILS=$(echo "$TASK" | cut -f3)
 
 echo "$(date -Is) picking up [$CARD_ID] $TITLE" >> "$LOG"
 
-claude --print "
+claude --print --no-session-persistence "
 You are working autonomously on a Kanban task. Complete it fully, then update the board.
 
 Card ID : $CARD_ID
