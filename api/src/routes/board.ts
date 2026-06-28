@@ -1,11 +1,15 @@
 import { Hono } from 'hono';
 import { addClient, broadcast, removeClient } from '../events.js';
-import { addCard, deleteCard, findCards, getBoard, moveCard, renameColumn } from '../board.js';
+import { addCard, deleteCard, findCards, getArchive, getBoard, moveCard, renameColumn } from '../board.js';
 
 const board = new Hono();
 
 board.get('/', (c) => {
   return c.json({ columns: getBoard() });
+});
+
+board.get('/archive', (c) => {
+  return c.json({ cards: getArchive() });
 });
 
 board.get('/events', (c) => {

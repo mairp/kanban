@@ -74,6 +74,19 @@ else:
 "
     ;;
 
+  history)
+    curl -sf "$API/api/board/archive" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+if not data['cards']:
+    print('No archived cards.')
+else:
+    for c in data['cards']:
+        print(f\"[{c['archived_at']}] [{c['reason']}] {c['title']}\")
+        if c.get('details'): print(f\"  {c['details']}\")
+"
+    ;;
+
   help|*)
     echo "Kanban CLI — manage the kanban board from the command line"
     echo ""
@@ -83,6 +96,7 @@ else:
     echo "  move <card-id> <column-id> [pos]      Move card to column at position (default 0)"
     echo "  delete <card-id>                      Remove a card"
     echo "  find <query>                          Search cards by title or details"
+    echo "  history                               Show completed/deleted card log"
     echo ""
     echo "Column IDs: backlog | in-progress | review | done | blocked"
     echo "API: \$KANBAN_API_URL (default: http://localhost:3001)"

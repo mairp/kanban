@@ -36,8 +36,17 @@ export function addCard(columnId: string, title: string, details: string): Card 
 
 export function deleteCard(cardId: string): boolean {
   const db = getDb();
-  const result = db.prepare('DELETE FROM cards WHERE id = ?').run(cardId);
-  return result.changes > 0;
+  const card = db.prepare('SELECT * FROM cards WHERE id = ?').get(cardId) as (Card & { column_id: string }) | undefined;
+  if (!card) return false;
+
+  db.transaction(() => {
+    db.prepare(
+      `INSERT INTO card_archive (id, column_id, title, details, archived_at, reason)
+       VALUES (?, ?, ?, ?, datetime('now'), 'deleted')`
+    ).run(card.id, card.column_id, card.title, card.details);
+    db.prepare('DELETE FROM cards WHERE id = ?').run(cardId);
+  })();
+  return true;
 }
 
 export function moveCard(cardId: string, toColumnId: string, toPosition: number): boolean {
@@ -65,7 +74,20 @@ export function moveCard(cardId: string, toColumnId: string, toPosition: number)
   });
 
   move();
+
+  if (toColumnId === 'done') {
+    db.prepare(
+      `INSERT INTO card_archive (id, column_id, title, details, archived_at, reason)
+       VALUES (?, 'done', ?, ?, datetime('now'), 'completed')`
+    ).run(card.id, card.title, card.details);
+  }
+
   return true;
+}
+
+export function getArchive(): (Card & { column_id: string; archived_at: string; reason: string })[] {
+  const db = getDb();
+  return db.prepare('SELECT * FROM card_archive ORDER BY archived_at DESC').all() as (Card & { column_id: string; archived_at: string; reason: string })[];
 }
 
 export function renameColumn(columnId: string, title: string): boolean {

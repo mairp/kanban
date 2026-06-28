@@ -38,6 +38,21 @@ function initSchema(db: Database.Database) {
     db.prepare('INSERT INTO schema_version VALUES (1)').run();
     seedData(db);
   }
+
+  const version = (db.prepare('SELECT version FROM schema_version').get() as { version: number }).version;
+  if (version < 2) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS card_archive (
+        id          TEXT NOT NULL,
+        column_id   TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        details     TEXT NOT NULL DEFAULT '',
+        archived_at TEXT NOT NULL,
+        reason      TEXT NOT NULL DEFAULT 'deleted'
+      );
+    `);
+    db.prepare('UPDATE schema_version SET version = 2').run();
+  }
 }
 
 function seedData(db: Database.Database) {
