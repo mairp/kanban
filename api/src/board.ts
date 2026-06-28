@@ -55,22 +55,26 @@ export function moveCard(cardId: string, toColumnId: string, toPosition: number)
   const card = db.prepare('SELECT * FROM cards WHERE id = ?').get(cardId) as Card & { column_id: string } | undefined;
   if (!card) return false;
 
+  const fromColumnId = card.column_id;
+
   const move = db.transaction(() => {
-    db.prepare('DELETE FROM cards WHERE id = ?').run(cardId);
-
-    const siblings = db.prepare('SELECT id FROM cards WHERE column_id = ? ORDER BY position').all(toColumnId) as { id: string }[];
-
-    siblings.splice(toPosition, 0, { id: cardId });
-
     const update = db.prepare('UPDATE cards SET position = ? WHERE id = ?');
-    siblings.forEach((s, i) => update.run(i, s.id));
 
-    db.prepare('UPDATE cards SET column_id = ?, position = ?, title = ?, details = ? WHERE id = ?').run(
-      toColumnId, toPosition, card.title, card.details, cardId
-    );
+    // Move the card into the target column (UPDATE in place — never DELETE,
+    // or the row is gone). Park it at a sentinel position first so the reorder
+    // below can place it precisely.
+    db.prepare('UPDATE cards SET column_id = ?, position = ? WHERE id = ?').run(toColumnId, 1_000_000, cardId);
 
-    const rerank = db.prepare('SELECT id FROM cards WHERE column_id = ? ORDER BY position').all(toColumnId) as { id: string }[];
-    rerank.forEach((s, i) => update.run(i, s.id));
+    // Rebuild the target column's order with the card inserted at toPosition.
+    const target = db.prepare('SELECT id FROM cards WHERE column_id = ? AND id != ? ORDER BY position').all(toColumnId, cardId) as { id: string }[];
+    target.splice(toPosition, 0, { id: cardId });
+    target.forEach((s, i) => update.run(i, s.id));
+
+    // Compact the source column so positions stay contiguous (skip if same column).
+    if (fromColumnId !== toColumnId) {
+      const src = db.prepare('SELECT id FROM cards WHERE column_id = ? ORDER BY position').all(fromColumnId) as { id: string }[];
+      src.forEach((s, i) => update.run(i, s.id));
+    }
   });
 
   move();
