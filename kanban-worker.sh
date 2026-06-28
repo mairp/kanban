@@ -11,12 +11,28 @@ set -euo pipefail
 LOCK=/tmp/kanban-worker.lock
 API="${KANBAN_API_URL:-http://localhost:3002}"
 LOG=/var/log/kanban-worker.log
-TG_TARGET="${KANBAN_TG_TARGET:-7790852780}"   # Marlon's Telegram chat id
+SESSIONS=/var/log/kanban-sessions.jsonl        # card -> claude session map (read by `kanban-cli.sh sessions`)
+TG_TARGET="${KANBAN_TG_TARGET:-7790852780}"    # Marlon's Telegram chat id
 
 # Plain-text Telegram notify (no emojis, per project convention). Best-effort.
 notify() {
   openclaw message send --channel telegram --account default \
     --target "$TG_TARGET" -m "$1" >/dev/null 2>&1 || true
+}
+
+# Append a card->session record (JSON, safely escaped via python). Args: status card_id session_id title
+record_session() {
+  STATUS="$1" RC_CARD="$2" RC_SID="$3" RC_TITLE="$4" python3 -c '
+import json, os, datetime
+rec = {
+    "ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+    "status": os.environ["STATUS"],
+    "card_id": os.environ["RC_CARD"],
+    "session_id": os.environ["RC_SID"],
+    "title": os.environ["RC_TITLE"],
+}
+print(json.dumps(rec))
+' >> "$SESSIONS" 2>/dev/null || true
 }
 
 # Single-instance guard (prevents timer overlap)
@@ -64,6 +80,7 @@ DETAILS=$(echo "$TASK" | cut -f3)
 SESSION_ID=$(cat /proc/sys/kernel/random/uuid)
 
 echo "$(date -Is) picking up [$CARD_ID] $TITLE (session $SESSION_ID)" >> "$LOG"
+record_session started "$CARD_ID" "$SESSION_ID" "$TITLE"
 notify "Kanban worker: started \"$TITLE\" (card $CARD_ID). Inspect later: claude --resume $SESSION_ID"
 
 # Capture output so we can send a completion summary. Don't let a non-zero
@@ -90,6 +107,7 @@ set -e
 
 echo "$RESULT" >> "$LOG"
 echo "$(date -Is) done [$CARD_ID] rc=$RC" >> "$LOG"
+record_session "$([ "$RC" -eq 0 ] && echo done || echo error)" "$CARD_ID" "$SESSION_ID" "$TITLE"
 
 # Summary = last chunk of the model's output (Telegram caption budget).
 SUMMARY=$(echo "$RESULT" | tail -c 600)

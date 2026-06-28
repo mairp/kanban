@@ -87,6 +87,33 @@ else:
 "
     ;;
 
+  sessions)
+    # Show the autonomous-worker Claude session for each card (resume id).
+    # Optional arg: filter by card id. Reads the worker's sidecar log.
+    SESSIONS_FILE="${KANBAN_SESSIONS_FILE:-/var/log/kanban-sessions.jsonl}"
+    FILTER="${1:-}"
+    [ -f "$SESSIONS_FILE" ] || { echo "No worker sessions recorded yet."; exit 0; }
+    FILTER="$FILTER" python3 -c "
+import json, os
+flt = os.environ.get('FILTER', '')
+latest = {}
+with open('$SESSIONS_FILE') as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try: r = json.loads(line)
+        except Exception: continue
+        if flt and r.get('card_id') != flt: continue
+        latest[r['session_id']] = r   # one line per session, keep last status
+if not latest:
+    print('No sessions found' + (f' for card {flt}' if flt else '') + '.')
+else:
+    for r in sorted(latest.values(), key=lambda x: x['ts']):
+        print(f\"[{r['ts']}] [{r['status']}] {r['title']}\")
+        print(f\"  card {r['card_id']}  |  claude --resume {r['session_id']}\")
+"
+    ;;
+
   help|*)
     echo "Kanban CLI — manage the kanban board from the command line"
     echo ""
@@ -97,6 +124,7 @@ else:
     echo "  delete <card-id>                      Remove a card"
     echo "  find <query>                          Search cards by title or details"
     echo "  history                               Show completed/deleted card log"
+    echo "  sessions [card-id]                    Show worker Claude session (resume id) per card"
     echo ""
     echo "Column IDs: backlog | in-progress | review | done | blocked"
     echo "API: \$KANBAN_API_URL (default: http://localhost:3001)"
