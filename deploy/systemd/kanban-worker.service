@@ -1,0 +1,7 @@
+[Unit]
+Description=Kanban autonomous worker (Claude Code)
+After=kanban-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/.claude/hooks/kanban-worker.sh

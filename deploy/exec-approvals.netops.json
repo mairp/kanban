@@ -1,0 +1,14 @@
+{
+  "_comment": "Reference snippet — the kanban-related entries to add to the netops agent allowlist in ~/.openclaw/exec-approvals.json. The '/root/kanban/**' glob covers all three scripts. Add via CLI (preferred, reloads on gateway restart): openclaw approvals allowlist add --agent netops \"/root/kanban/**\"",
+  "agents": {
+    "netops": {
+      "allowlist": [
+        { "pattern": "/root/kanban/kanban-cli.sh" },
+        { "pattern": "/root/kanban/kanban-cli.sh *" },
+        { "pattern": "/root/kanban/kanban-screenshot.sh" },
+        { "pattern": "/root/kanban/kanban-screenshot.sh *" },
+        { "pattern": "/root/kanban/**" }
+      ]
+    }
+  }
+}

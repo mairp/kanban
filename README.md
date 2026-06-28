@@ -135,6 +135,8 @@ Runs `chromium --headless --no-sandbox` (as root) to capture the board UI at `:3
 
 ## Persistence
 
+Reproducible install + wiring lives in [`deploy/`](deploy/README.md) (systemd units, the Telegram bot skill, the session hook, and the exec-approval reference).
+
 All components survive a host reboot:
 
 | Component | Mechanism |
