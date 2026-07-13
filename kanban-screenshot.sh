@@ -10,20 +10,13 @@ CAPTION="${1:-Kanban board}"
 
 mkdir -p "$MEDIA_DIR"
 
-# Run chromium as root (agent already runs as root); --no-sandbox required for root.
-timeout 20 /usr/bin/chromium \
-  --headless=new \
-  --screenshot="$MEDIA_FILE" \
-  --window-size=1600,1000 \
-  --hide-scrollbars \
-  --no-first-run \
-  --no-default-browser-check \
-  --disable-gpu \
-  --disable-dev-shm-usage \
-  --no-sandbox \
-  http://localhost:3001 2>/dev/null
+# Capture via kanban-shot.js (CDP render-wait). The board is client-rendered, so a
+# plain `chromium --screenshot` fires before the /api/board fetch resolves and
+# captures the "Loading board..." state — unreliable, esp. on a heavy board.
+SHOT_URL="${KANBAN_UI_URL:-http://localhost:3001}" SHOT_OUT="$MEDIA_FILE" SHOT_H="${SHOT_H:-2200}" \
+  timeout 45 node /root/kanban/kanban-shot.js >&2
 
-[[ -f "$MEDIA_FILE" ]] || { echo "screenshot failed — chromium produced no output" >&2; exit 1; }
+[[ -f "$MEDIA_FILE" ]] || { echo "screenshot failed — no output" >&2; exit 1; }
 
 exec openclaw message send \
   --channel telegram \
