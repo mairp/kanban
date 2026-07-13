@@ -168,8 +168,15 @@ notify "Kanban worker: started \"$TITLE\" (card $CARD_ID). Inspect later: claude
 
 # Capture output so we can send a completion summary. Don't let a non-zero
 # claude exit abort the script before we notify.
+#
+# --dangerously-skip-permissions: in --print (non-interactive) there is no
+# approver, so Write/Edit/Bash would auto-DENY -> the agent runs read-only and
+# every coding task fails "filesystem read-only". IS_SANDBOX=1 is REQUIRED for
+# root, else the skip-permissions flag silently no-ops (cf. ralph_loop.sh).
+# Enabled 2026-07-13 with Marlon's explicit approval so the worker can do real
+# coding work autonomously.
 set +e
-RESULT=$(claude --print --session-id "$SESSION_ID" "
+RESULT=$(IS_SANDBOX=1 claude --print --dangerously-skip-permissions --session-id "$SESSION_ID" "
 You are working autonomously on a Kanban task. Complete it fully, then update the board.
 
 Card ID : $CARD_ID
