@@ -5,6 +5,8 @@ export interface Card {
   title: string;
   details: string;
   position: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Column {
@@ -30,8 +32,11 @@ export function addCard(columnId: string, title: string, details: string): Card 
   const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE column_id = ?').get(columnId) as { m: number };
   const id = crypto.randomUUID();
   const position = maxPos.m + 1;
-  db.prepare('INSERT INTO cards (id, column_id, title, details, position) VALUES (?, ?, ?, ?, ?)').run(id, columnId, title, details, position);
-  return { id, title, details, position };
+  db.prepare(
+    `INSERT INTO cards (id, column_id, title, details, position, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  ).run(id, columnId, title, details, position);
+  return db.prepare('SELECT id, title, details, position, created_at, updated_at FROM cards WHERE id = ?').get(id) as Card;
 }
 
 export function deleteCard(cardId: string): boolean {
@@ -78,6 +83,11 @@ export function moveCard(cardId: string, toColumnId: string, toPosition: number)
   });
 
   move();
+
+  // Stamp the moved card so staleness (time in a column, esp. in-progress) is
+  // measurable. Only the moved card's clock resets — sibling reorders don't
+  // reset a stranded card's timer.
+  db.prepare(`UPDATE cards SET updated_at = datetime('now') WHERE id = ?`).run(cardId);
 
   if (toColumnId === 'done') {
     db.prepare(

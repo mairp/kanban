@@ -40,6 +40,14 @@ for col in data['columns']:
     PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'cardId':sys.argv[1],'toColumnId':sys.argv[2],'toPosition':int(sys.argv[3])}))" "$CARD_ID" "$TO_COL" "$POS")
     curl -sf -X POST "$API/api/board/move" \
       -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
+    # Ownership marker for the anti-stranding SessionEnd hook: when a Claude Code
+    # session parks a card in-progress, record who owns it; clear it on move-out.
+    OWNER_FILE="/tmp/kanban-owner-$CARD_ID"
+    if [ "$TO_COL" = "in-progress" ]; then
+      printf '%s' "${CLAUDE_CODE_SESSION_ID:-manual}" > "$OWNER_FILE" 2>/dev/null || true
+    else
+      rm -f "$OWNER_FILE" 2>/dev/null || true
+    fi
     echo "Moved card $CARD_ID → $TO_COL (position $POS)"
     ;;
 
@@ -56,6 +64,7 @@ for col in board['columns']:
 sys.exit(1)
 " "$CARD_ID") || fail "card $CARD_ID not found"
     curl -sf -X DELETE "$API/api/board/columns/$COL_ID/cards/$CARD_ID" > /dev/null
+    rm -f "/tmp/kanban-owner-$CARD_ID" 2>/dev/null || true
     echo "Deleted card $CARD_ID"
     ;;
 

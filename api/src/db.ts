@@ -53,6 +53,20 @@ function initSchema(db: Database.Database) {
     `);
     db.prepare('UPDATE schema_version SET version = 2').run();
   }
+
+  if (version < 3) {
+    // Card timestamps: needed so the autonomous worker can detect a card that
+    // has been stranded in `in-progress` (stale) vs. one just picked up.
+    // SQLite has no ADD COLUMN IF NOT EXISTS, so guard via table_info.
+    const existing = new Set(
+      (db.prepare('PRAGMA table_info(cards)').all() as { name: string }[]).map((c) => c.name)
+    );
+    if (!existing.has('created_at')) db.exec(`ALTER TABLE cards ADD COLUMN created_at TEXT`);
+    if (!existing.has('updated_at')) db.exec(`ALTER TABLE cards ADD COLUMN updated_at TEXT`);
+    db.exec(`UPDATE cards SET created_at = datetime('now') WHERE created_at IS NULL`);
+    db.exec(`UPDATE cards SET updated_at = datetime('now') WHERE updated_at IS NULL`);
+    db.prepare('UPDATE schema_version SET version = 3').run();
+  }
 }
 
 function seedData(db: Database.Database) {
